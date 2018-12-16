@@ -1,3 +1,6 @@
+import Foundation
+
 public func demangle(name: String) -> String {
-    return name //TODO: implement
+    return Parser(rawValue: name).parse()
 }
+

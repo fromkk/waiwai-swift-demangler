@@ -6,8 +6,7 @@ final class SwiftDemanglerTests: XCTestCase {
         XCTAssertEqual(demangle(name: "$S13ExampleNumber6isEven6numberSbSi_tF"),
                        "ExampleNumber.isEven(number: Swift.Int) -> Swift.Bool")
     }
-
-
+    
     static var allTests = [
         ("testEx1", testEx1),
     ]

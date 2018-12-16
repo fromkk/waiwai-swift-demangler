@@ -4,6 +4,7 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(SwiftDemanglerTests.allTests),
+        testCase(ParserTests.allTests)
     ]
 }
 #endif
