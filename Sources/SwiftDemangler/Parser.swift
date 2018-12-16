@@ -14,16 +14,21 @@ public class Parser: RawRepresentable {
     public static let suffix: String = "F"
     
     public let rawValue: String
-    var buffer: String = ""
+    var currentIndex: String.Index
+    var buffer: String {
+        return String(rawValue[currentIndex..<rawValue.endIndex])
+    }
+    
     required public init(rawValue mangled: String) {
         self.rawValue = mangled
+        currentIndex = rawValue.startIndex
     }
     
     public func parse() -> String {
-        buffer = rawValue
         
         // remove: $S
-        buffer = removePrefix(of: buffer, and: type(of: self).prefix)
+        removePrefix(of: buffer, and: type(of: self).prefix)
+        currentIndex = rawValue.index(currentIndex, offsetBy: type(of: self).prefix.count)
         
         let moduleName = parseModule()
         let declName = parseDecl()
@@ -32,7 +37,8 @@ public class Parser: RawRepresentable {
         let argumentTypes = parseArgumentTypes()
         
         // remote: F
-        buffer = removeSuffix(of: buffer, and: type(of: self).suffix)
+        removeSuffix(of: buffer, and: type(of: self).suffix)
+        currentIndex = rawValue.index(currentIndex, offsetBy: type(of: self).suffix.count)
         
         return combintComponents(module: moduleName, decl: declName, labels: labels, arguments: argumentTypes, returnType: returnType)
     }
@@ -43,7 +49,7 @@ public class Parser: RawRepresentable {
     ///   - value: 検索する文字列
     ///   - prefix: 削除する先頭の文字列
     /// - Returns: 削除済みの文字列が返る、prefixが無ければそのまま返る
-    public func removePrefix(of value: String, and prefix: String) -> String {
+    @discardableResult public func removePrefix(of value: String, and prefix: String) -> String {
         guard value.hasPrefix(prefix) else { return value }
         var result = value
         let length = prefix.count
@@ -57,7 +63,7 @@ public class Parser: RawRepresentable {
     ///   - value: 検索する文字列
     ///   - suffix: 削除する末尾の文字列
     /// - Returns: 削除済みの文字列が返る、suffixが無ければそのまま返る
-    public func removeSuffix(of value: String, and suffix: String) -> String {
+    @discardableResult public func removeSuffix(of value: String, and suffix: String) -> String {
         guard value.hasSuffix(suffix) else { return value }
         var result = value
         let length = suffix.count
@@ -176,26 +182,28 @@ public class Parser: RawRepresentable {
         return result
     }
     
-    /// モジュール名をパースして返す、バッファーを更新する
+    /// モジュール名をパースして返す、currentIndexを更新する
     ///
     /// - Returns: String
     public func parseModule() -> String {
         let module = findComponent(from: buffer)
         let moduleName = parseComponent(from: module)
-        buffer = removePrefix(of: buffer, and: module)
+        removePrefix(of: buffer, and: module)
+        currentIndex = rawValue.index(currentIndex, offsetBy: module.count)
         return moduleName
     }
-    /// declをパースして返す、バッファーを更新する
+    /// declをパースして返す、currentIndexを更新する
     ///
     /// - Returns: String
     public func parseDecl() -> String {
         let decl = findComponent(from: buffer)
         let declName = parseComponent(from: decl)
-        buffer = removePrefix(of: buffer, and: decl)
+        removePrefix(of: buffer, and: decl)
+        currentIndex = rawValue.index(currentIndex, offsetBy: decl.count)
         return declName
     }
     
-    /// label-listをパースして返す、バッファーを更新する
+    /// label-listをパースして返す、currentIndexを更新する
     ///
     /// - Returns: [String]
     public func parseLabels() -> [String] {
@@ -203,20 +211,22 @@ public class Parser: RawRepresentable {
         while 0 < findFirstDigits(from: buffer) {
             let label = findComponent(from: buffer)
             let labelName = parseComponent(from: buffer)
-            buffer = removePrefix(of: buffer, and: label)
+            removePrefix(of: buffer, and: label)
+            currentIndex = rawValue.index(currentIndex, offsetBy: label.count)
             labels.append(labelName)
         }
         return labels
     }
     
-    /// 返り値をパースして返す、バッファーを更新する
+    /// 返り値をパースして返す、currentIndexを更新する
     ///
     /// - Returns: KnownType?
     public func parseReturnType() -> KnownType? {
         let returnTypeString: String? = findSignature(from: buffer)
         let returnType: KnownType?
         if let returnTypeString = returnTypeString {
-            buffer = removePrefix(of: buffer, and: returnTypeString)
+            removePrefix(of: buffer, and: returnTypeString)
+            currentIndex = rawValue.index(currentIndex, offsetBy: returnTypeString.count)
             returnType = parseKnownType(from: returnTypeString)
         } else {
             returnType = nil
@@ -224,7 +234,7 @@ public class Parser: RawRepresentable {
         return returnType
     }
     
-    /// 引数の一覧をパースして返す、バッファーを更新する
+    /// 引数の一覧をパースして返す、currentIndexを更新する
     ///
     /// - Returns: [KnownType]
     public func parseArgumentTypes() -> [KnownType] {
@@ -232,13 +242,19 @@ public class Parser: RawRepresentable {
         while 1 < buffer.count {
             if let signature = findSignature(from: buffer), let knownType = parseKnownType(from: signature) {
                 argumentTypes.append(knownType)
-                buffer = removePrefix(of: buffer, and: signature)
+                removePrefix(of: buffer, and: signature)
+                currentIndex = rawValue.index(currentIndex, offsetBy: signature.count)
             } else if 0 < buffer.count {
+                let listStart = "_"
+                let end = "t"
+                
                 let firstChar = String(buffer[buffer.startIndex..<buffer.index(buffer.startIndex, offsetBy: 1)])
-                if firstChar == "_" {
-                    buffer = removePrefix(of: buffer, and: "_")
-                } else if firstChar == "t" {
-                    buffer = removePrefix(of: buffer, and: "t")
+                if firstChar == listStart {
+                    removePrefix(of: buffer, and: listStart)
+                    currentIndex = rawValue.index(currentIndex, offsetBy: listStart.count)
+                } else if firstChar == end {
+                    removePrefix(of: buffer, and: end)
+                    currentIndex = rawValue.index(currentIndex, offsetBy: end.count)
                 } else {
                     break
                 }
